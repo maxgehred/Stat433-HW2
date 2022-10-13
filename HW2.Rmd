@@ -1,0 +1,74 @@
+---
+title: "Hw 2"
+author: "Max Gehred"
+date: '2022-10-13'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r, echo=FALSE}
+library(tidyverse)
+library(nycflights13)
+```
+
+#Introduction
+
+##Data Cleaning
+```{r prob1}
+modflights <- flights %>% mutate(pos_arr_delay=replace(arr_delay,arr_delay<0,0)) %>% mutate(pos_dep_delay=replace(dep_delay,dep_delay<0,0)) %>% 
+  mutate(total_delay = pos_dep_delay + pos_arr_delay) %>% 
+  mutate(sched_dep_hour = substring(sched_dep_time,1,nchar(sched_dep_time)-2))
+```
+
+##The best time to fy, to avoid delays
+```{r prob1plot, echo=FALSE}
+byhour = modflights %>% group_by(sched_dep_hour) %>% mutate(avg_delay=mean(total_delay, na.rm=TRUE)) %>% ggplot()+geom_point(mapping=aes(x=sched_dep_hour, y=avg_delay))
+
+byhour
+```
+
+Introduction:
+
+As you can see from the graph above, the optimal departure time to avoid delays is 5pm. 
+
+I go on to investigate how season, origin, and flight distance affect the graph above, and optimal departure time to avoid delays. In doing so, I found that the optimal departure time remained constant near 5am, and never going later than 7am for any subsect of the data I investigated. 
+
+#By Season
+
+```{r, by seasonplot,echo=FALSE}
+modflights2 = modflights %>% mutate(season = case_when(month == 3 | month == 4 | month == 5 ~ "spring", month == 6 | month == 7 | month == 8 ~ "summer", month == 9 | month == 10 | month == 11 ~ "fall", TRUE ~ "winter"))
+
+modflights2 %>% group_by(season,sched_dep_hour) %>% arrange(sched_dep_hour) %>% mutate(avg_delay=mean(total_delay, na.rm=TRUE)) %>% ggplot()+ geom_point(mapping=aes(x=sched_dep_hour,y= avg_delay, color = season))
+```
+
+Based on the results above, season does have some impact on average departure delay, but the optimal departure hour does not depend on season. Whether Fall Winter Summer or Spring, the optimal departure time is 5AM. Interestingly, the variance of delays are much greater in the summer, which makes an early morning departure more valuable in that season.
+
+#ByOrigin
+
+```{r}
+modflights2 %>% group_by(origin,sched_dep_hour) %>% arrange(sched_dep_hour) %>% mutate(avg_delay=mean(total_delay, na.rm=TRUE)) %>% ggplot()+ geom_point(mapping=aes(x=sched_dep_hour,y= avg_delay, color = origin))
+```
+
+There doens't appear to be strong pattern indicating vastly different optimal departure times by airport origin, though there are some interesting observations. It appears that in general EWR are significatnyl more delayed than LGA across the board. Also, when leaving from LGA on should leave at 6am, instead of 5am, to minimize delays. Beyond this though, optimal departure time is not deeply dependant on airport origin.
+
+#byDistance
+
+```{r}
+modflights2 = modflights %>% mutate(distance_bucket = case_when(distance < 1000 ~ "0-1000", distance > 1000 & distance < 2000 ~ "1000-2000", distance > 2000 & distance < 3000 ~ "2000-3000", distance > 3000 & distance < 4000 ~ "3000-4000",distance > 4000 & distance < 5000 ~ "4000-5000"))
+
+modflights2 %>% group_by(distance_bucket,sched_dep_hour) %>% arrange(sched_dep_hour) %>% mutate(avg_delay=mean(total_delay, na.rm=TRUE)) %>% ggplot()+ geom_point(mapping=aes(x=sched_dep_hour,y= avg_delay, color = distance_bucket))
+```
+
+Distance does not appear to be a factor in optimal departure times. 3000-4000, and 4000-5000 flights have a negligible count, so I will disregard them here. 
+
+Once again, the optimal time to leave is somewhere in the early morning, usually around 5, 6, or 7 am. Interestingly, 2000-3000 mile flights have very average delay at 5am, but have standardly low delays at 6 and 7.
+
